@@ -22,7 +22,7 @@ CREATE TABLE orders(
     "quantity" INTEGER,
     "profit_per_order" FLOAT NOT NULL,
     "order_status" TEXT NOT NULL,
-    FOREIGN KEY ("customer_id") REFERENCES customer("id"),
+    FOREIGN KEY ("customer_id") REFERENCES customers("id"),
     FOREIGN KEY ("product_id") REFERENCES products("id")
 );
 
