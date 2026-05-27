@@ -41,8 +41,8 @@ CREATE TABLE shipping(
     "id" INTEGER PRIMARY KEY AUTOINCREMENT,
     "order_id" INTEGER NOT NULL UNIQUE,
     "shipping_mode" TEXT NOT NULL,
-    "days_scheduled" INTEGER NOT NULL,
-    "days_actual" INTEGER NOT NULL,
+    "days_scheduled" FLOAT NOT NULL,
+    "days_actual" FLOAT NOT NULL,
     "delivery_status" TEXT NOT NULL,
     "late_delivery_risk" INTEGER NOT NULL,
 
