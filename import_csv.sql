@@ -203,3 +203,59 @@ WHERE "Order Id"                      IS NOT NULL AND "Order Id"                
   AND "Late_delivery_risk"            IS NOT NULL AND "Late_delivery_risk"            <> ''
   AND CAST("Order Id" AS INTEGER) IN (SELECT id FROM orders)
 GROUP BY CAST("Order Id" AS INTEGER);
+
+-- ─── 9. Remove incomplete trailing months ────────────────────────────────────
+-- From Oct 2017 onward the source CSV recorded only 1 item per order instead
+-- of the typical 3, causing a sudden artificial revenue drop.  Evidence:
+--   • Order counts went UP  (~1 700 → ~2 100/month)  — not a real slowdown
+--   • Items/order dropped to EXACTLY 1.0 overnight — a recording artifact
+-- We detect affected orders by finding months where the average items-per-order
+-- falls below 60 % of the dataset-wide median, then cascade-delete everything
+-- linked to those orders so no other table is left with orphaned rows.
+
+-- Step 1: identify the bad order IDs
+CREATE TEMP TABLE bad_orders AS
+WITH monthly_ratio AS (
+    SELECT
+        o.id AS order_id,
+        substr(o.order_date,
+            instr(o.order_date,'/')+
+            instr(substr(o.order_date,instr(o.order_date,'/')+1),'/')+1, 4)
+        || '-' ||
+        printf('%02d',
+            CAST(substr(o.order_date,1,instr(o.order_date,'/')-1) AS INTEGER))
+            AS ym
+    FROM orders o
+),
+month_stats AS (
+    SELECT ym,
+           COUNT(oi.id) * 1.0 / COUNT(DISTINCT o.id) AS items_per_order
+    FROM orders o
+    JOIN order_items oi ON o.id = oi.order_id
+    JOIN monthly_ratio mr ON o.id = mr.order_id
+    GROUP BY ym
+),
+median_val AS (
+    SELECT AVG(items_per_order) AS med
+    FROM (
+        SELECT items_per_order
+        FROM month_stats
+        ORDER BY items_per_order
+        LIMIT 2 OFFSET (SELECT COUNT(*)/2 - 1 FROM month_stats)
+    )
+),
+bad_months AS (
+    SELECT ym FROM month_stats, median_val
+    WHERE items_per_order < med * 0.6
+)
+SELECT o.id AS order_id
+FROM orders o
+JOIN monthly_ratio mr ON o.id = mr.order_id
+WHERE mr.ym IN (SELECT ym FROM bad_months);
+
+-- Step 2: cascade delete from child tables first, then orders
+DELETE FROM shipping    WHERE order_id IN (SELECT order_id FROM bad_orders);
+DELETE FROM order_items WHERE order_id IN (SELECT order_id FROM bad_orders);
+DELETE FROM orders      WHERE id        IN (SELECT order_id FROM bad_orders);
+
+DROP TABLE bad_orders;
