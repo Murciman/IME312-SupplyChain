@@ -19,8 +19,8 @@ CREATE TABLE orders(
     "customer_id" INTEGER NOT NULL,
     "product_id" INTEGER NOT NULL,
     "order_date" NUMERIC NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "quantity" INTEGER,
-    "profit_per_order" FLOAT NOT NULL,
+    "quantity" INTEGER CHECK("quantity" > 0),
+    "profit_per_order" FLOAT NOT NULL CHECK(profit_per_order >= 0),
     "order_status" TEXT NOT NULL,
     FOREIGN KEY ("customer_id") REFERENCES customers("id"),
     FOREIGN KEY ("product_id") REFERENCES products("id")
@@ -31,14 +31,15 @@ CREATE TABLE products(
     "category_id" INTEGER NOT NULL,
     "department_id" INTEGER NOT NULL,
     "product_name" TEXT NOT NULL,
-    "product_price", FLOAT NOT NULL,
+    "product_price" FLOAT NOT NULL CHECK(product_price >= 0),
+
     FOREIGN KEY ("category_id") REFERENCES categories("id"),
     FOREIGN KEY ("department_id") REFERENCES departments("id")
 );
 
 CREATE TABLE shipping(
     "id" INTEGER PRIMARY KEY AUTOINCREMENT,
-    "order_id" INTEGER NOT NULL,
+    "order_id" INTEGER NOT NULL UNIQUE,
     "shipping_mode" TEXT NOT NULL,
     "days_scheduled" INTEGER NOT NULL,
     "days_actual" INTEGER NOT NULL,
